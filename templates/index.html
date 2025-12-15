@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chung's Recipes</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            padding: 2em;
+            background-color: #f4f4f9;
+            color: #333;
+            text-align: center; /* Center inline content */
+        }
+        .container {
+            max-width: 900px;
+            margin: 2em auto; /* Add vertical margin and auto horizontal for centering */
+            background: #fff;
+            padding: 2em;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            color: #333;
+            text-align: center;
+        }
+        .form-container {
+            margin-bottom: 2em;
+            padding: 1.5em;
+            background-color: #fdfdfd;
+            border-radius: 8px;
+            border: 1px solid #eee;
+        }
+        .form-container form {
+            display: block;
+            gap: 10px;
+            align-items: center;
+        }
+        .form-container input[type="url"], .form-container select {
+            display: block;
+            width: 100%;
+            box-sizing: border-box;
+            flex-grow: 1;
+            padding: 0.8em;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin-bottom: 1em;
+        }
+        .form-container button {
+            padding: 0.8em 1.5em;
+            border: none;
+            background-color: #007bff;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .form-container button:hover {
+            background-color: #0056b3;
+        }
+        #recipe-list {
+            list-style: none;
+            padding: 0;
+        }
+        .recipe-item {
+            display: flex;
+            align-items: center;
+            padding: 1em;
+            margin-bottom: 10px;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: grab;
+            justify-content: space-between;
+        }
+        .recipe-item:hover {
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+        }
+        .recipe-item a {
+            text-decoration: none;
+            color: inherit;
+            flex-grow: 1;
+        }
+        .recipe-details {
+            flex-grow: 1;
+        }
+        .recipe-title {
+            font-weight: bold;
+            margin: 0;
+            text-align: center;
+        }
+        .recipe-category {
+            font-size: 0.9em;
+            color: #666;
+            background-color: #eee;
+            padding: 0.2em 0.5em;
+            border-radius: 10px;
+            display: inline-block;
+        }
+        .recipe-categories {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 5px;
+            justify-content: center; /* Center flex items horizontally */
+        }
+        .recipe-actions button {
+            margin-left: 10px;
+            padding: 0.5em 1em;
+            border: 1px solid transparent;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .category-selector {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 1em;
+            justify-content: center; /* Center grid items horizontally */
+        }
+        .category-selector label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .category-selector input {
+            margin: 0;
+            margin-right: 5px; /* Add space between checkbox and label */
+        }
+        .edit-btn { background-color: #ffc107; color: #333; }
+        .delete-btn { background-color: #dc3545; color: white; }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 500px;
+            border-radius: 8px;
+        }
+        .close-button {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🍳 Chung's Recipes 🍴</h1>
+        <div class="form-container">
+            <h2>Add a New Recipe</h2>
+            <form action="{{ url_for('add_recipe') }}" method="POST">
+                <input type="url" name="url" placeholder="Enter Allrecipes URL" required>
+                <div class="category-selector">
+                    {% for category in categories %}
+                    <label>
+                        <input type="checkbox" name="category" value="{{ category }}"> {{ category }}
+                    </label>
+                    {% endfor %}
+                </div>
+                <button type="submit" style="display: block; margin: 0 auto;">Scrape Recipe</button>
+            </form>
+        </div>
+
+        <div class="form-container">
+            <h2>Search Recipes</h2>
+            <input type="text" id="searchInput" placeholder="Search by name or category" style="width: 100%; padding: 0.8em; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 1em;">
+        </div>
+
+        <h2>My Recipes</h2>
+        <ul id="recipe-list">
+            {% for recipe in recipes %}
+            <li class="recipe-item" data-id="{{ recipe.id }}">
+                <a href="{{ url_for('view_recipe', recipe_id=recipe.id) }}">
+                    <div class="recipe-details">
+                        <p class="recipe-title">{{ recipe.title }}</p>
+                        <div class="recipe-categories">
+                        {% for cat in recipe.category %}
+                        <span class="recipe-category">{{ cat }}</span>
+                        {% endfor %}
+                    </div>
+                    </div>
+                </a>
+                <div class="recipe-actions">
+                    <button class="edit-btn" data-recipe-id="{{ recipe.id }}" data-title="{{ recipe.title }}">Edit</button>
+                    <form action="{{ url_for('delete_recipe', recipe_id=recipe.id) }}" method="POST" style="display: inline;">
+                        <button type="submit" class="delete-btn">Delete</button>
+                    </form>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" onclick="closeEditModal()">&times;</span>
+            <h2>Edit Recipe</h2>
+            <form id="editForm" method="POST">
+                <input type="text" id="editTitle" name="title" required style="width: 100%; padding: 0.5em; margin-bottom: 1em;">
+                <div id="editCategory" class="category-selector">
+                    {% for category in categories %}
+                    <label>
+                        <input type="checkbox" name="category" value="{{ category }}"> {{ category }}
+                    </label>
+                    {% endfor %}
+                </div>
+                <button type="submit">Save Changes</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
+    <script>
+        // Live Search
+        const searchInput = document.getElementById('searchInput');
+        searchInput.addEventListener('input', function() {
+            const query = this.value.toLowerCase();
+            const recipeItems = document.querySelectorAll('.recipe-item');
+            recipeItems.forEach(item => {
+                const title = item.querySelector('.recipe-title').textContent.toLowerCase();
+                const categories = Array.from(item.querySelectorAll('.recipe-category')).map(cat => cat.textContent.toLowerCase());
+                const isMatch = title.includes(query) || categories.some(cat => cat.includes(query));
+                item.style.display = isMatch ? '' : 'none';
+            });
+        });
+
+        // Drag and Drop
+        const recipeList = document.getElementById('recipe-list');
+        new Sortable(recipeList, {
+            animation: 150,
+            onEnd: function (evt) {
+                const order = Array.from(evt.to.children).map(item => item.dataset.id);
+                fetch('/update_order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ order: order })
+                });
+            }
+        });
+
+        // Modal Logic
+        const modal = document.getElementById('editModal');
+        const editForm = document.getElementById('editForm');
+        const editTitle = document.getElementById('editTitle');
+        const editCategory = document.getElementById('editCategory');
+
+        document.querySelectorAll('.edit-btn').forEach(button => {
+            button.addEventListener('click', event => {
+                const button = event.target;
+                const id = button.dataset.recipeId;
+                const title = button.dataset.title;
+
+                // Fetch categories via AJAX
+                fetch(`/recipe/${id}/categories_json`)
+                    .then(response => response.json())
+                    .then(categories => {
+                        editForm.action = `/recipe/${id}/edit`;
+                        editTitle.value = title;
+                        const checkboxes = editCategory.querySelectorAll('input[type="checkbox"]');
+                        checkboxes.forEach(checkbox => {
+                            checkbox.checked = categories.includes(checkbox.value);
+                        });
+                        modal.style.display = 'block';
+                    })
+                    .catch(error => console.error('Error fetching categories:', error));
+            });
+        });
+
+        function closeEditModal() {
+            modal.style.display = 'none';
+        }
+
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                closeEditModal();
+            }
+        }
+    </script>
+</body>
+</html>
