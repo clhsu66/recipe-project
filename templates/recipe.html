@@ -46,30 +46,178 @@
         li {
             margin-bottom: 0.5em;
         }
+        .favorite-star {
+            color: #ffca28;
+        }
+        textarea {
+            font-family: inherit;
+        }
+        .recipe-image {
+            width: 100%;
+            max-height: 400px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-bottom: 1em;
+        }
+        .servings-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5em;
+        }
+        .servings-count {
+            min-width: 2em;
+            text-align: center;
+            font-weight: 600;
+        }
+        .servings-step-btn {
+            padding: 0.15em 0.6em;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            background-color: #f0f0f0;
+            cursor: pointer;
+        }
+        .servings-step-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <a href="{{ url_for('index') }}" class="back-link">&larr; Back to Recipe Box</a>
-        <h1>{{ recipe.title }}</h1>
+        <h1>{% if recipe.favorite %}<span class="favorite-star">★</span> {% endif %}{{ recipe.title }}</h1>
         <a href="{{ recipe.url }}" target="_blank">(Original Recipe)</a>
+
+        <div class="recipe-section">
+            {% set times = recipe.cooked_count or 0 %}
+            {% if times > 0 %}
+            <p>Cooked {{ times }} time{% if times != 1 %}s{% endif %}.</p>
+            {% if recipe.last_cooked %}
+            <p>Last cooked: {{ recipe.last_cooked }}</p>
+            {% endif %}
+            {% else %}
+            <p>Not cooked yet.</p>
+            {% endif %}
+            {% if recipe.made_again is not none %}
+            <p>Made again preference: {% if recipe.made_again %}Yes{% else %}No{% endif %}</p>
+            {% endif %}
+        </div>
+
+        {% if recipe.image_url %}
+        <div class="recipe-section">
+            <img src="{{ recipe.image_url }}" alt="{{ recipe.title }}" class="recipe-image">
+        </div>
+        {% endif %}
+
+        <div class="recipe-section">
+            <form method="get" action="{{ url_for('view_recipe', recipe_id=recipe.id) }}">
+                <div class="servings-row">
+                    <label for="servings-select">Servings:</label>
+                    <button type="submit"
+                            class="servings-step-btn"
+                            name="servings"
+                            value="{{ current_servings - 1 }}"
+                            {% if current_servings <= 1 %}disabled{% endif %}>−</button>
+                    <span class="servings-count">{{ current_servings }}</span>
+                    <button type="submit"
+                            class="servings-step-btn"
+                            name="servings"
+                            value="{{ current_servings + 1 }}">+</button>
+                    <select id="servings-select" name="servings" onchange="this.form.submit()">
+                        {% for n in [2, 4, 6, 8, 10, 12] %}
+                        <option value="{{ n }}" {% if n == current_servings %}selected{% endif %}>{{ n }}</option>
+                        {% endfor %}
+                    </select>
+                    <span style="font-size:0.9em;color:#666;">
+                        (original: {{ base_servings }} servings)
+                    </span>
+                </div>
+            </form>
+        </div>
 
         <div class="recipe-section">
             <h2>Ingredients</h2>
             <ul>
-                {% for ingredient in recipe.ingredients %}
+                {% for ingredient in ingredients %}
                 <li>{{ ingredient }}</li>
                 {% endfor %}
             </ul>
         </div>
 
+        {% if recipe.nutrition %}
         <div class="recipe-section">
-            <h2>Instructions</h2>
+            <h2>Nutrition (per serving)</h2>
+            <ul>
+                {% if recipe.nutrition.servingSize %}<li>Serving size: {{ recipe.nutrition.servingSize }}</li>{% endif %}
+                {% if recipe.nutrition.calories %}<li>Calories: {{ recipe.nutrition.calories }}</li>{% endif %}
+                {% if recipe.nutrition.carbohydrateContent %}<li>Carbs: {{ recipe.nutrition.carbohydrateContent }}</li>{% endif %}
+                {% if recipe.nutrition.proteinContent %}<li>Protein: {{ recipe.nutrition.proteinContent }}</li>{% endif %}
+                {% if recipe.nutrition.fatContent %}<li>Fat: {{ recipe.nutrition.fatContent }}</li>{% endif %}
+                {% if recipe.nutrition.saturatedFatContent %}<li>Saturated fat: {{ recipe.nutrition.saturatedFatContent }}</li>{% endif %}
+                {% if recipe.nutrition.cholesterolContent %}<li>Cholesterol: {{ recipe.nutrition.cholesterolContent }}</li>{% endif %}
+                {% if recipe.nutrition.sodiumContent %}<li>Sodium: {{ recipe.nutrition.sodiumContent }}</li>{% endif %}
+                {% if recipe.nutrition.fiberContent %}<li>Fiber: {{ recipe.nutrition.fiberContent }}</li>{% endif %}
+                {% if recipe.nutrition.sugarContent %}<li>Sugar: {{ recipe.nutrition.sugarContent }}</li>{% endif %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <div class="recipe-section">
+            <h2>Instructions{% if current_servings %} (for {{ current_servings }} servings){% endif %}</h2>
             <ol>
                 {% for instruction in recipe.instructions %}
                 <li>{{ instruction }}</li>
                 {% endfor %}
             </ol>
+        </div>
+
+        <div class="recipe-section">
+            <h2>Your Notes & Rating</h2>
+            <form method="post" action="{{ url_for('update_recipe_meta', recipe_id=recipe.id) }}">
+                <input type="hidden" name="servings" value="{{ current_servings }}">
+                <div style="margin-bottom:1em;">
+                    <label for="rating-select">Rating:</label>
+                    <select id="rating-select" name="rating">
+                        <option value="">No rating</option>
+                        {% for n in [1, 2, 3, 4, 5] %}
+                        <option value="{{ n }}" {% if recipe.rating == n %}selected{% endif %}>{{ n }}</option>
+                        {% endfor %}
+                    </select>
+                    {% if recipe.rating %}
+                    <span style="margin-left:0.5em;">
+                        {% for _ in range(recipe.rating) %}★{% endfor %}
+                        {% for _ in range(5 - recipe.rating) %}☆{% endfor %}
+                    </span>
+                    {% endif %}
+                </div>
+                <div style="margin-top:1em;">
+                    <div style="margin-bottom:0.5em;">Tags:</div>
+                    {% for tag in all_tags %}
+                    <label style="margin-right:0.5em;">
+                        <input type="checkbox" name="tags" value="{{ tag }}" {% if recipe.tags and tag in recipe.tags %}checked{% endif %}>
+                        {{ tag }}
+                    </label>
+                    {% endfor %}
+                </div>
+                <div>
+                    <label for="notes">Notes:</label><br>
+                    <textarea id="notes" name="notes" rows="4" style="width:100%;">{{ recipe.notes or '' }}</textarea>
+                </div>
+                <button type="submit" style="margin-top:0.5em;">Save Notes & Rating</button>
+            </form>
+        </div>
+
+        <div class="recipe-section">
+            <h2>Cook Log</h2>
+            <form method="post" action="{{ url_for('mark_recipe_cooked', recipe_id=recipe.id) }}">
+                <input type="hidden" name="servings" value="{{ current_servings }}">
+                <label>
+                    <input type="checkbox" name="made_again" {% if recipe.made_again %}checked{% endif %}>
+                    I'd make this again
+                </label>
+                <button type="submit" style="margin-left:0.5em;">I cooked this</button>
+            </form>
         </div>
     </div>
 </body>

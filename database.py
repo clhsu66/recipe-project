@@ -65,6 +65,31 @@ def save_recipes(recipes):
         upsert=True
     )
 
+
+def load_meal_plan():
+    """Load the weekly meal plan stored as a separate document."""
+    if recipe_collection is None:
+        print("Database not connected. Cannot load meal plan.")
+        return {}
+
+    doc = recipe_collection.find_one({"_id": "meal_plan"})
+    if doc and "plan" in doc:
+        return doc["plan"]
+    return {}
+
+
+def save_meal_plan(plan):
+    """Save the weekly meal plan as a separate document."""
+    if recipe_collection is None:
+        print("Database not connected. Cannot save meal plan.")
+        return
+
+    recipe_collection.update_one(
+        {"_id": "meal_plan"},
+        {"$set": {"plan": plan}},
+        upsert=True
+    )
+
 def close_db_connection():
     if client:
         client.close()
