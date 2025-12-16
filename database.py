@@ -1,7 +1,7 @@
 import os
+import atexit
 from pymongo import MongoClient, errors
 from pymongo.server_api import ServerApi
-import atexit
 
 # --- Connection Setup ---
 # We retrieve the connection string from an environment variable for security.
@@ -29,8 +29,8 @@ else:
 
 if client:
     db = client.recipe_box
-    # We will use a single document within a collection to store the entire list of recipes.
-    # This closely mimics the behavior of the original JSON file-based storage.
+    # We will use a single collection with a few documents
+    # (recipes, meal plan, recipe sites) to keep things simple.
     recipe_collection = db.recipe_list
 else:
     db = None
@@ -87,6 +87,38 @@ def save_meal_plan(plan):
     recipe_collection.update_one(
         {"_id": "meal_plan"},
         {"$set": {"plan": plan}},
+        upsert=True
+    )
+
+
+def load_recipe_sites(default_sites=None):
+    """
+    Load the list of recipe sites (for the homepage links).
+
+    Falls back to the provided default_sites if nothing is stored yet
+    or if the database is not connected.
+    """
+    if recipe_collection is None:
+        print("Database not connected. Using default recipe sites.")
+        return default_sites or []
+
+    doc = recipe_collection.find_one({"_id": "recipe_sites"})
+    if doc and "sites" in doc:
+        return doc["sites"]
+    return default_sites or []
+
+
+def save_recipe_sites(sites):
+    """
+    Save the list of recipe sites.
+    """
+    if recipe_collection is None:
+        print("Database not connected. Cannot save recipe sites.")
+        return
+
+    recipe_collection.update_one(
+        {"_id": "recipe_sites"},
+        {"$set": {"sites": sites}},
         upsert=True
     )
 

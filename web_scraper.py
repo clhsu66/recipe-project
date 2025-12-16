@@ -205,3 +205,102 @@ def scrape_recipe_data(url):
         "image_url": image_url,
         "url": url,
     }
+
+
+# Sample URLs from a variety of popular recipe sites for quick manual checks.
+# You can run this module directly (python web_scraper.py) to see
+# which sites currently work well with the scraper.
+SAMPLE_RECIPE_URLS = [
+    (
+        "Allrecipes - Lasagna",
+        "https://www.allrecipes.com/recipe/24074/alysias-basic-meat-lasagna/",
+    ),
+    (
+        "Delish - Creamy Tuscan Chicken",
+        "https://www.delish.com/cooking/recipe-ideas/a19636089/creamy-tuscan-chicken-recipe/",
+    ),
+    (
+        "Food Network - Roast Chicken",
+        "https://www.foodnetwork.com/recipes/food-network-kitchen/classic-roast-chicken-recipe-2011723",
+    ),
+    (
+        "BBC Good Food - Spaghetti Bolognese",
+        "https://www.bbcgoodfood.com/recipes/best-spaghetti-bolognese-recipe",
+    ),
+    (
+        "Simply Recipes - Guacamole",
+        "https://www.simplyrecipes.com/recipes/perfect_guacamole/",
+    ),
+    (
+        "Cookie and Kate - Lentil Soup",
+        "https://cookieandkate.com/best-lentil-soup-recipe/",
+    ),
+    (
+        "Serious Eats - Smashed Cheeseburgers",
+        "https://www.seriouseats.com/ultra-smashed-cheeseburger-recipe",
+    ),
+    (
+        "Skinnytaste - Chicken Parmesan",
+        "https://www.skinnytaste.com/skinny-chicken-parmesan/",
+    ),
+    (
+        "Taste of Home - Scalloped Potatoes",
+        "https://www.tasteofhome.com/recipes/the-best-cheesy-scalloped-potatoes/",
+    ),
+    (
+        "Sally's Baking Addiction - Chocolate Chip Cookies",
+        "https://sallysbakingaddiction.com/chocolate-chip-cookies/",
+    ),
+    (
+        "Damn Delicious - Ramen",
+        "https://damndelicious.net/2019/04/24/quick-ramen-noodle-stir-fry/",
+    ),
+    (
+        "Gimme Some Oven - Chicken Tacos",
+        "https://www.gimmesomeoven.com/easy-chicken-tacos/",
+    ),
+]
+
+
+def _print_recipe_summary(label, url):
+    print("=" * 80)
+    print(label)
+    print(url)
+    print("-" * 80)
+
+    data = scrape_recipe_data(url)
+    if not data:
+        print("FAILED to scrape recipe data.")
+        return
+
+    print(f"Title: {data.get('title')!r}")
+    print(f"Servings: {data.get('servings')}")
+
+    ingredients = data.get("ingredients") or []
+    instructions = data.get("instructions") or []
+    nutrition = data.get("nutrition") or {}
+
+    print(f"# ingredients: {len(ingredients)}")
+    for ing in ingredients[:5]:
+        print(f"  - {ing}")
+    if len(ingredients) > 5:
+        print("  ...")
+
+    print(f"# instructions: {len(instructions)}")
+    for step in instructions[:3]:
+        print(f"  * {step}")
+    if len(instructions) > 3:
+        print("  ...")
+
+    if nutrition:
+        print("Nutrition keys:", ", ".join(sorted(nutrition.keys())))
+    else:
+        print("Nutrition: none")
+
+    image_url = data.get("image_url")
+    print("Image URL:", "present" if image_url else "none")
+
+
+if __name__ == "__main__":
+    for label, url in SAMPLE_RECIPE_URLS:
+        _print_recipe_summary(label, url)

@@ -49,6 +49,11 @@
         .favorite-star {
             color: #ffca28;
         }
+        .cook-meta-inline {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 0.5em;
+        }
         textarea {
             font-family: inherit;
         }
@@ -89,20 +94,20 @@
         <h1>{% if recipe.favorite %}<span class="favorite-star">★</span> {% endif %}{{ recipe.title }}</h1>
         <a href="{{ recipe.url }}" target="_blank">(Original Recipe)</a>
 
-        <div class="recipe-section">
+        <p class="cook-meta-inline">
             {% set times = recipe.cooked_count or 0 %}
             {% if times > 0 %}
-            <p>Cooked {{ times }} time{% if times != 1 %}s{% endif %}.</p>
+            Cooked {{ times }} time{% if times != 1 %}s{% endif %}
             {% if recipe.last_cooked %}
-            <p>Last cooked: {{ recipe.last_cooked }}</p>
+            • last cooked {{ recipe.last_cooked }}
             {% endif %}
             {% else %}
-            <p>Not cooked yet.</p>
+            Not cooked yet
             {% endif %}
-            {% if recipe.made_again is not none %}
-            <p>Made again preference: {% if recipe.made_again %}Yes{% else %}No{% endif %}</p>
+            {% if recipe.made_again %}
+            • keeper
             {% endif %}
-        </div>
+        </p>
 
         {% if recipe.image_url %}
         <div class="recipe-section">

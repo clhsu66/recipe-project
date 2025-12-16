@@ -26,7 +26,7 @@
             text-align: center;
         }
         .form-container {
-            margin-bottom: 2em;
+            margin-bottom: 1.5em;
             padding: 1.5em;
             background-color: #fdfdfd;
             border-radius: 8px;
@@ -67,7 +67,7 @@
             display: flex;
             align-items: center;
             padding: 1em;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             background-color: #fff;
             border: 1px solid #ddd;
             border-radius: 4px;
@@ -150,38 +150,24 @@
             opacity: 0.6;
             cursor: not-allowed;
         }
-        .sort-filter-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            align-items: center;
-            justify-content: center;
-            margin-top: 0.5em;
-        }
-        .category-filters {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            justify-content: center;
-            margin-top: 0.5em;
-        }
-        .category-filter {
-            padding: 0.3em 0.6em;
-            border-radius: 12px;
-            border: 1px solid #ccc;
-            background-color: #f0f0f0;
-            cursor: pointer;
-            font-size: 0.85em;
-        }
-        .category-filter.active {
-            background-color: #007bff;
-            color: #fff;
-            border-color: #007bff;
-        }
         .recipe-meta {
             font-size: 0.85em;
             color: #666;
             margin-top: 0.25em;
+        }
+        .recipe-meta-keeper {
+            font-style: italic;
+            color: #999;
+            font-size: 0.8em;
+        }
+        .secondary-button {
+            padding: 0.6em 1.0em;
+            background-color: #f4f4f4;
+            color: #333;
+            border: 1px solid #ccc;
+        }
+        .secondary-button:hover {
+            background-color: #e0e0e0;
         }
 
         /* Modal Styles */
@@ -217,6 +203,30 @@
 <body>
     <div class="container">
         <h1>🍳 Chung's Recipes 🍴</h1>
+        {% if recipe_sites %}
+        <p style="margin-top:0.5em;margin-bottom:1.0em;font-size:0.9em;color:#555;">
+            Explore recipe sites to discover new dishes to add:
+        </p>
+        <div style="margin-bottom:1.5em;display:flex;flex-wrap:wrap;justify-content:center;gap:0.5em;">
+            {% for site in recipe_sites %}
+            <a href="{{ site.url }}" target="_blank" rel="noopener noreferrer"
+               style="padding:0.3em 0.7em;border-radius:999px;border:1px solid #ccc;font-size:0.9em;color:#007bff;text-decoration:none;background-color:#fafafa;">
+                {{ site.name }}
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+        <div class="form-container">
+            <h2>Favorite Recipe Websites</h2>
+            <p style="font-size:0.9em;color:#555;margin-top:0;margin-bottom:1em;">
+                Add your own favorite recipe websites here so they appear as quick links above.
+            </p>
+            <form action="{{ url_for('add_recipe_site') }}" method="POST">
+                <input type="text" name="site_name" placeholder="Site name (e.g. Serious Eats)" required>
+                <input type="url" name="site_url" placeholder="Site URL (e.g. https://www.seriouseats.com/)" required>
+                <button type="submit" style="display:block;margin:0 auto;">Add Recipe Website</button>
+            </form>
+        </div>
         {% with messages = get_flashed_messages() %}
         {% if messages %}
         <div class="form-container" style="background-color:#fff8e1;border-color:#ffe082;">
@@ -229,7 +239,7 @@
         <div class="form-container">
             <h2>Add a New Recipe</h2>
             <form action="{{ url_for('add_recipe') }}" method="POST">
-                <input type="url" name="url" placeholder="Enter Allrecipes URL" required>
+                <input type="url" name="url" placeholder="Paste a recipe URL (e.g. Allrecipes, Delish, BBC Good Food)" required>
                 <div class="category-selector">
                     {% for category in categories %}
                     <label>
@@ -245,32 +255,44 @@
             <h2>Search Recipes</h2>
             <input type="text" id="searchInput" placeholder="Search by name or category" style="width: 100%; padding: 0.8em; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 1em;">
             <small style="display:block;color:#666;">Tip: type "favorite" to show only starred recipes.</small>
-            <div class="sort-filter-row">
-                <label for="sortSelect">Sort by:</label>
-                <select id="sortSelect">
-                    <option value="manual">Manual (drag order)</option>
-                    <option value="favorites">Favorites first</option>
-                    <option value="alpha">Title A–Z</option>
-                    <option value="newest">Newest first</option>
-                </select>
-            </div>
-            <div class="category-filters" id="categoryFilters">
-                {% for category in categories %}
-                <button type="button" class="category-filter" data-category="{{ category }}">{{ category }}</button>
-                {% endfor %}
-            </div>
+            <h3 style="margin-top:1em;margin-bottom:0.5em;">Tools</h3>
             <div style="margin-top:0.5em; display:flex; gap:0.5em; justify-content:center; flex-wrap:wrap;">
                 <form action="{{ url_for('dedupe_recipes') }}" method="POST">
-                    <button type="submit" style="padding:0.4em 0.8em;">Remove Duplicate Recipes</button>
+                    <button type="submit" class="secondary-button"
+                            onclick="return confirm('Remove duplicate recipes by URL? This cannot be undone.');">
+                        Remove Duplicate Recipes
+                    </button>
                 </form>
                 <form action="{{ url_for('reset_cooked') }}" method="POST">
-                    <button type="submit" style="padding:0.4em 0.8em;">Reset Cooked Counters</button>
+                    <button type="submit" class="secondary-button"
+                            onclick="return confirm('Reset cooked counters and keeper flags for all recipes?');">
+                        Reset Cooked Counters
+                    </button>
                 </form>
             </div>
         </div>
 
+        <h2>Weekly Meal Plan</h2>
+        <ul style="list-style:none;padding:0;">
+            {% for day in days %}
+            <li>
+                <strong>{{ day }}:</strong>
+                {% set rid = plan[day] %}
+                {% if rid and recipe_map.get(rid) %}
+                <a href="{{ url_for('view_recipe', recipe_id=rid) }}">{{ recipe_map[rid].title }}</a>
+                <form action="{{ url_for('clear_meal_plan_day') }}" method="POST" style="display:inline;margin-left:0.5em;">
+                    <input type="hidden" name="day" value="{{ day }}">
+                    <button type="submit" class="secondary-button" style="padding:0.1em 0.4em;font-size:0.8em;">Clear</button>
+                </form>
+                {% else %}
+                (none)
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        <p><a href="{{ url_for('shopping_list') }}">View Shopping List</a></p>
+
         <h2>My Recipes</h2>
-        <p><a href="{{ url_for('meal_plan') }}">Go to Weekly Meal Plan</a></p>
         <ul id="recipe-list">
             {% for recipe in recipes %}
             <li class="recipe-item" data-id="{{ recipe.id }}" data-favorite="{{ 'true' if recipe.favorite else 'false' }}">
@@ -294,6 +316,9 @@
                             {% else %}
                             Not cooked yet
                             {% endif %}
+                            {% if recipe.made_again %}
+                            <span class="recipe-meta-keeper">&nbsp;•&nbsp;keeper</span>
+                            {% endif %}
                         </p>
                         <div class="recipe-categories">
                         {% for cat in recipe.category %}
@@ -310,6 +335,15 @@
                                 {% if recipe.favorite %}disabled title="Unfavorite this recipe before deleting"{% endif %}>
                             Delete
                         </button>
+                    </form>
+                    <form action="{{ url_for('set_meal_plan_day') }}" method="POST" style="margin-top:0.5em;">
+                        <input type="hidden" name="recipe_id" value="{{ recipe.id }}">
+                        <select name="day" onchange="if(this.value){ this.form.submit(); }">
+                            <option value="">Add to weekly plan…</option>
+                            {% for day in days %}
+                            <option value="{{ day }}">{{ day }}</option>
+                            {% endfor %}
+                        </select>
                     </form>
                 </div>
             </li>
@@ -339,125 +373,42 @@
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
     <script>
         const recipeList = document.getElementById('recipe-list');
-        const allRecipeItems = Array.from(recipeList.querySelectorAll('.recipe-item'));
-        let manualOrder = allRecipeItems.slice();
-        let currentSearchQuery = '';
-        let favoriteSearchOnly = false;
-        let selectedCategories = new Set();
-        let currentSort = 'manual';
 
-        function getItemCategories(item) {
-            return Array.from(item.querySelectorAll('.recipe-category')).map(cat =>
-                cat.textContent.toLowerCase()
-            );
-        }
-
-        function applyFiltersAndSort() {
-            const items = Array.from(recipeList.children);
-
-            items.forEach(item => {
-                const title = item.querySelector('.recipe-title').textContent.toLowerCase();
-                const categories = getItemCategories(item);
-                const isFavorite = item.dataset.favorite === 'true';
-
-                let matchesSearch = true;
-                if (currentSearchQuery) {
-                    if (favoriteSearchOnly) {
-                        matchesSearch = isFavorite;
-                    } else {
-                        matchesSearch =
-                            title.includes(currentSearchQuery) ||
-                            categories.some(cat => cat.includes(currentSearchQuery));
-                    }
-                }
-
-                let matchesCategory = true;
-                if (selectedCategories.size > 0) {
-                    matchesCategory = categories.some(cat =>
-                        selectedCategories.has(cat.toLowerCase())
-                    );
-                }
-
-                const visible = matchesSearch && matchesCategory;
-                item.style.display = visible ? '' : 'none';
-            });
-
-            let itemsToSort = Array.from(recipeList.children);
-
-            if (currentSort === 'manual') {
-                manualOrder.forEach(item => recipeList.appendChild(item));
-                return;
-            }
-
-            if (currentSort === 'favorites') {
-                itemsToSort.sort((a, b) => {
-                    const af = a.dataset.favorite === 'true' ? 1 : 0;
-                    const bf = b.dataset.favorite === 'true' ? 1 : 0;
-                    if (af !== bf) return bf - af; // favorites first
-                    const at = a.querySelector('.recipe-title').textContent.toLowerCase();
-                    const bt = b.querySelector('.recipe-title').textContent.toLowerCase();
-                    return at.localeCompare(bt);
-                });
-            } else if (currentSort === 'alpha') {
-                itemsToSort.sort((a, b) => {
-                    const at = a.querySelector('.recipe-title').textContent.toLowerCase();
-                    const bt = b.querySelector('.recipe-title').textContent.toLowerCase();
-                    return at.localeCompare(bt);
-                });
-            } else if (currentSort === 'newest') {
-                itemsToSort.sort((a, b) => {
-                    const aid = parseInt(a.dataset.id, 10);
-                    const bid = parseInt(b.dataset.id, 10);
-                    return bid - aid; // larger id (newer) first
-                });
-            }
-
-            itemsToSort.forEach(item => recipeList.appendChild(item));
-        }
-
-        // Live Search
+        // Live Search (with special handling for "favorite")
         const searchInput = document.getElementById('searchInput');
         searchInput.addEventListener('input', function() {
             const query = this.value.toLowerCase().trim();
-            currentSearchQuery = query;
-            favoriteSearchOnly = (query === 'favorite' || query === 'favorites');
-            if (favoriteSearchOnly) {
-                currentSearchQuery = '';
-            }
-            applyFiltersAndSort();
-        });
+            const recipeItems = document.querySelectorAll('.recipe-item');
+            recipeItems.forEach(item => {
+                const title = item.querySelector('.recipe-title').textContent.toLowerCase();
+                const categories = Array.from(item.querySelectorAll('.recipe-category')).map(cat =>
+                    cat.textContent.toLowerCase()
+                );
+                const isFavorite = item.dataset.favorite === 'true';
 
-        // Category filter chips
-        const categoryFiltersContainer = document.getElementById('categoryFilters');
-        if (categoryFiltersContainer) {
-            categoryFiltersContainer.querySelectorAll('.category-filter').forEach(button => {
-                button.addEventListener('click', () => {
-                    const category = button.dataset.category.toLowerCase();
-                    if (button.classList.contains('active')) {
-                        button.classList.remove('active');
-                        selectedCategories.delete(category);
-                    } else {
-                        button.classList.add('active');
-                        selectedCategories.add(category);
-                    }
-                    applyFiltersAndSort();
-                });
+                if (query === '') {
+                    item.style.display = '';
+                    return;
+                }
+
+                if (query === 'favorite' || query === 'favorites') {
+                    item.style.display = isFavorite ? '' : 'none';
+                    return;
+                }
+
+                const matches =
+                    title.includes(query) ||
+                    categories.some(cat => cat.includes(query));
+
+                item.style.display = matches ? '' : 'none';
             });
-        }
-
-        // Sort selection
-        const sortSelect = document.getElementById('sortSelect');
-        sortSelect.addEventListener('change', function() {
-            currentSort = this.value;
-            applyFiltersAndSort();
         });
 
-        // Drag and Drop
+        // Drag and Drop (manual order only)
         new Sortable(recipeList, {
             animation: 150,
             onEnd: function (evt) {
                 const order = Array.from(evt.to.children).map(item => item.dataset.id);
-                manualOrder = Array.from(recipeList.children);
                 fetch('/update_order', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -503,9 +454,6 @@
                 closeEditModal();
             }
         }
-
-        // Initial apply to ensure consistent state
-        applyFiltersAndSort();
     </script>
 </body>
 </html>

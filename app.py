@@ -3,11 +3,35 @@ from datetime import date
 
 from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
 from web_scraper import scrape_recipe_data
-from database import load_recipes, save_recipes, load_meal_plan, save_meal_plan
+from database import (
+    load_recipes,
+    save_recipes,
+    load_meal_plan,
+    save_meal_plan,
+    load_recipe_sites,
+    save_recipe_sites,
+)
 
 TAGS = ["Quick", "Kid-friendly", "Spicy"]
 
-DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+DAYS_OF_WEEK = [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday",
+]
+
+# Curated list of recipe sites that work well with the scraper.
+DEFAULT_RECIPE_SITES = [
+    {"name": "Allrecipes", "url": "https://www.allrecipes.com/"},
+    {"name": "Delish", "url": "https://www.delish.com/"},
+    {"name": "BBC Good Food", "url": "https://www.bbcgoodfood.com/"},
+    {"name": "Simply Recipes", "url": "https://www.simplyrecipes.com/"},
+    {"name": "Cookie and Kate", "url": "https://cookieandkate.com/"},
+]
 
 app = Flask(__name__)
 app.secret_key = "change-this-secret-key"
@@ -16,7 +40,21 @@ app.secret_key = "change-this-secret-key"
 def index():
     recipes = load_recipes()
     categories = sorted(["Breakfast", "Lunch", "Dinner", "Beef", "Chicken", "Fish", "Desserts", "Vegetarian", "Pasta", "Soups", "Other", "Appetizer", "Salad", "Side Dish", "Vegan", "Gluten-Free", "Mexican", "Italian", "Indian", "Chinese", "Japanese"])
-    return render_template('index.html', recipes=recipes, categories=categories)
+    plan = load_meal_plan() or {}
+    recipe_sites = load_recipe_sites(DEFAULT_RECIPE_SITES)
+    # Ensure all days are present
+    for day in DAYS_OF_WEEK:
+        plan.setdefault(day, None)
+    recipe_map = {r['id']: r for r in recipes}
+    return render_template(
+        'index.html',
+        recipes=recipes,
+        categories=categories,
+        plan=plan,
+        days=DAYS_OF_WEEK,
+        recipe_map=recipe_map,
+        recipe_sites=recipe_sites,
+    )
 
 @app.route('/add_recipe', methods=['POST'])
 def add_recipe():
@@ -54,6 +92,38 @@ def add_recipe():
     recipes.insert(0, new_recipe)
     save_recipes(recipes)
     
+    return redirect(url_for('index'))
+
+
+@app.route('/add_recipe_site', methods=['POST'])
+def add_recipe_site():
+    """
+    Add a new recipe website link to the list shown on the homepage.
+    """
+    name = (request.form.get('site_name') or '').strip()
+    url = (request.form.get('site_url') or '').strip()
+
+    if not name or not url:
+        flash('Site name and URL are required to add a recipe website.')
+        return redirect(url_for('index'))
+
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
+
+    recipe_sites = load_recipe_sites(DEFAULT_RECIPE_SITES)
+
+    # Avoid duplicates by URL (case-insensitive).
+    normalized_url = url.rstrip('/').lower()
+    for site in recipe_sites:
+        existing_url = (site.get('url') or '').rstrip('/').lower()
+        if existing_url == normalized_url:
+            flash('This recipe website is already in your list.')
+            break
+    else:
+        recipe_sites.append({"name": name, "url": url})
+        save_recipe_sites(recipe_sites)
+        flash(f'Added recipe website: {name}')
+
     return redirect(url_for('index'))
 
 def _parse_quantity_and_rest(text):
@@ -304,9 +374,10 @@ def reset_cooked():
 
     updated = 0
     for recipe in recipes:
-        if recipe.get('cooked_count') or recipe.get('last_cooked'):
+        if recipe.get('cooked_count') or recipe.get('last_cooked') or recipe.get('made_again'):
             recipe['cooked_count'] = 0
             recipe['last_cooked'] = None
+            recipe['made_again'] = False
             updated += 1
 
     save_recipes(recipes)
@@ -369,6 +440,56 @@ def update_order():
     
     save_recipes(ordered_recipes)
     return jsonify({'success': True, 'message': 'Recipe order updated.'})
+
+
+@app.route('/meal_plan/set_day', methods=['POST'])
+def set_meal_plan_day():
+    day = request.form.get('day')
+    recipe_id_raw = request.form.get('recipe_id')
+
+    if not day or day not in DAYS_OF_WEEK or not recipe_id_raw:
+        flash('Please select a day to add this recipe to the meal plan.')
+        return redirect(url_for('index'))
+
+    try:
+        recipe_id = int(recipe_id_raw)
+    except ValueError:
+        flash('Invalid recipe selected.')
+        return redirect(url_for('index'))
+
+    recipes = load_recipes()
+    recipe_map = {r['id']: r for r in recipes}
+    if recipe_id not in recipe_map:
+        flash('Recipe not found.')
+        return redirect(url_for('index'))
+
+    plan = load_meal_plan() or {}
+    plan[day] = recipe_id
+    save_meal_plan(plan)
+
+    title = recipe_map[recipe_id]['title']
+    flash(f'Added "{title}" to {day}.')
+    return redirect(url_for('index'))
+
+
+@app.route('/meal_plan/clear_day', methods=['POST'])
+def clear_meal_plan_day():
+    day = request.form.get('day')
+    if not day or day not in DAYS_OF_WEEK:
+        flash('Invalid day.')
+        return redirect(url_for('index'))
+
+    plan = load_meal_plan() or {}
+    had_value = bool(plan.get(day))
+    plan[day] = None
+    save_meal_plan(plan)
+
+    if had_value:
+        flash(f'Removed meal for {day}.')
+    else:
+        flash(f'No meal set for {day}.')
+
+    return redirect(url_for('index'))
 
 
 @app.route('/meal_plan', methods=['GET', 'POST'])
